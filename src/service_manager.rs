@@ -56,7 +56,7 @@ impl ServiceManager {
         if handle == 0 {
             Err(Error::Winapi(io::Error::last_os_error()))
         } else {
-            Ok(ServiceManager {
+            Ok(Self {
                 manager_handle: unsafe { ScHandle::new(handle) },
             })
         }
@@ -73,7 +73,7 @@ impl ServiceManager {
         database: Option<impl AsRef<OsStr>>,
         request_access: ServiceManagerAccess,
     ) -> Result<Self> {
-        ServiceManager::new(None::<&OsStr>, database, request_access)
+        Self::new(None::<&OsStr>, database, request_access)
     }
 
     /// Connect to remote services database.
@@ -89,7 +89,7 @@ impl ServiceManager {
         database: Option<impl AsRef<OsStr>>,
         request_access: ServiceManagerAccess,
     ) -> Result<Self> {
-        ServiceManager::new(Some(machine), database, request_access)
+        Self::new(Some(machine), database, request_access)
     }
 
     /// Create a service.

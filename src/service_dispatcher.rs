@@ -91,11 +91,11 @@ pub fn start(
     service_name: impl AsRef<OsStr>,
     service_main: extern "system" fn(u32, *mut *mut u16),
 ) -> Result<()> {
-    let service_name = WideCString::from_os_str(service_name)
+    let mut service_name = WideCString::from_os_str(service_name)
         .map_err(|_| Error::ArgumentHasNulByte("service name"))?;
     let service_table: &[Services::SERVICE_TABLE_ENTRYW] = &[
         Services::SERVICE_TABLE_ENTRYW {
-            lpServiceName: service_name.as_ptr() as _,
+            lpServiceName: service_name.as_mut_ptr(),
             lpServiceProc: Some(service_main),
         },
         // the last item has to be { null, null }

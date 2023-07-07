@@ -93,15 +93,15 @@ pub enum ServiceStartType {
 }
 
 impl ServiceStartType {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 
-    pub fn from_raw(raw: u32) -> Result<ServiceStartType, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == ServiceStartType::AutoStart.to_raw() => Ok(ServiceStartType::AutoStart),
-            x if x == ServiceStartType::OnDemand.to_raw() => Ok(ServiceStartType::OnDemand),
-            x if x == ServiceStartType::Disabled.to_raw() => Ok(ServiceStartType::Disabled),
+            x if x == Self::AutoStart.to_raw() => Ok(Self::AutoStart),
+            x if x == Self::OnDemand.to_raw() => Ok(Self::OnDemand),
+            x if x == Self::Disabled.to_raw() => Ok(Self::Disabled),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
@@ -120,16 +120,16 @@ pub enum ServiceErrorControl {
 }
 
 impl ServiceErrorControl {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 
-    pub fn from_raw(raw: u32) -> Result<ServiceErrorControl, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == ServiceErrorControl::Critical.to_raw() => Ok(ServiceErrorControl::Critical),
-            x if x == ServiceErrorControl::Ignore.to_raw() => Ok(ServiceErrorControl::Ignore),
-            x if x == ServiceErrorControl::Normal.to_raw() => Ok(ServiceErrorControl::Normal),
-            x if x == ServiceErrorControl::Severe.to_raw() => Ok(ServiceErrorControl::Severe),
+            x if x == Self::Critical.to_raw() => Ok(Self::Critical),
+            x if x == Self::Ignore.to_raw() => Ok(Self::Ignore),
+            x if x == Self::Normal.to_raw() => Ok(Self::Normal),
+            x if x == Self::Severe.to_raw() => Ok(Self::Severe),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
@@ -145,8 +145,8 @@ pub enum ServiceDependency {
 impl ServiceDependency {
     pub fn to_system_identifier(&self) -> OsString {
         match *self {
-            ServiceDependency::Service(ref name) => name.to_owned(),
-            ServiceDependency::Group(ref name) => {
+            Self::Service(ref name) => name.to_owned(),
+            Self::Group(ref name) => {
                 // since services and service groups share the same namespace the group identifiers
                 // should be prefixed with '+' (SC_GROUP_IDENTIFIER)
                 let mut group_identifier = OsString::new();
@@ -164,11 +164,11 @@ impl ServiceDependency {
         if iter.peek() == Some(&group_prefix) {
             let chars: Vec<u16> = iter.skip(1).collect();
             let group_name = OsString::from_wide(&chars);
-            ServiceDependency::Group(group_name)
+            Self::Group(group_name)
         } else {
             let chars: Vec<u16> = iter.collect();
             let service_name = OsString::from_wide(&chars);
-            ServiceDependency::Service(service_name)
+            Self::Service(service_name)
         }
     }
 }
@@ -184,16 +184,16 @@ pub enum ServiceActionType {
 }
 
 impl ServiceActionType {
-    pub fn to_raw(&self) -> i32 {
+    pub const fn to_raw(&self) -> i32 {
         *self as i32
     }
 
-    pub fn from_raw(raw: i32) -> Result<ServiceActionType, ParseRawError> {
+    pub const fn from_raw(raw: i32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == ServiceActionType::None.to_raw() => Ok(ServiceActionType::None),
-            x if x == ServiceActionType::Reboot.to_raw() => Ok(ServiceActionType::Reboot),
-            x if x == ServiceActionType::Restart.to_raw() => Ok(ServiceActionType::Restart),
-            x if x == ServiceActionType::RunCommand.to_raw() => Ok(ServiceActionType::RunCommand),
+            x if x == Self::None.to_raw() => Ok(Self::None),
+            x if x == Self::Reboot.to_raw() => Ok(Self::Reboot),
+            x if x == Self::Restart.to_raw() => Ok(Self::Restart),
+            x if x == Self::RunCommand.to_raw() => Ok(Self::RunCommand),
             _ => Err(ParseRawError::InvalidIntegerSigned(raw)),
         }
     }
@@ -217,8 +217,8 @@ pub struct ServiceAction {
 }
 
 impl ServiceAction {
-    pub fn from_raw(raw: Services::SC_ACTION) -> crate::Result<ServiceAction> {
-        Ok(ServiceAction {
+    pub fn from_raw(raw: Services::SC_ACTION) -> crate::Result<Self> {
+        Ok(Self {
             action_type: ServiceActionType::from_raw(raw.Type)
                 .map_err(|e| Error::ParseValue("service action type", e))?,
             delay: Duration::from_millis(raw.Delay as u64),
@@ -246,17 +246,17 @@ pub enum ServiceFailureResetPeriod {
 }
 
 impl ServiceFailureResetPeriod {
-    pub fn from_raw(raw: u32) -> ServiceFailureResetPeriod {
+    pub const fn from_raw(raw: u32) -> Self {
         match raw {
-            INFINITE => ServiceFailureResetPeriod::Never,
-            _ => ServiceFailureResetPeriod::After(Duration::from_secs(raw as u64)),
+            INFINITE => Self::Never,
+            _ => Self::After(Duration::from_secs(raw as u64)),
         }
     }
 
     pub fn to_raw(&self) -> u32 {
         match self {
-            ServiceFailureResetPeriod::Never => INFINITE,
-            ServiceFailureResetPeriod::After(duration) => {
+            Self::Never => INFINITE,
+            Self::After(duration) => {
                 u32::try_from(duration.as_secs()).expect("Too long reset period")
             }
         }
@@ -305,9 +305,7 @@ impl ServiceFailureActions {
     /// The `SERVICE_FAILURE_ACTIONSW` fields `lpRebootMsg`, `lpCommand` must be either null
     /// or proper null terminated wide C strings.
     /// `lpsaActions` must be either null or an array with `cActions` number of of `SC_ACTION`s.
-    pub unsafe fn from_raw(
-        raw: Services::SERVICE_FAILURE_ACTIONSW,
-    ) -> crate::Result<ServiceFailureActions> {
+    pub unsafe fn from_raw(raw: Services::SERVICE_FAILURE_ACTIONSW) -> crate::Result<Self> {
         let reboot_msg = ptr::NonNull::new(raw.lpRebootMsg)
             .map(|wrapped_ptr| WideCStr::from_ptr_str(wrapped_ptr.as_ptr()).to_os_string());
         let command = ptr::NonNull::new(raw.lpCommand)
@@ -328,7 +326,7 @@ impl ServiceFailureActions {
             )
         };
 
-        Ok(ServiceFailureActions {
+        Ok(Self {
             reset_period,
             reboot_msg,
             command,
@@ -525,7 +523,7 @@ impl ServiceConfig {
     ///
     /// `lpLoadOrderGroup`, `lpServiceStartName`, `lpBinaryPathName` and `lpDisplayName` must be
     /// either null or proper null terminated wide C strings.
-    pub unsafe fn from_raw(raw: Services::QUERY_SERVICE_CONFIGW) -> crate::Result<ServiceConfig> {
+    pub unsafe fn from_raw(raw: Services::QUERY_SERVICE_CONFIGW) -> crate::Result<Self> {
         let dependencies = double_nul_terminated::parse_str_ptr(raw.lpDependencies)
             .iter()
             .map(ServiceDependency::from_system_identifier)
@@ -545,7 +543,7 @@ impl ServiceConfig {
         let account_name = ptr::NonNull::new(raw.lpServiceStartName)
             .map(|wrapped_ptr| WideCStr::from_ptr_str(wrapped_ptr.as_ptr()).to_os_string());
 
-        Ok(ServiceConfig {
+        Ok(Self {
             service_type: ServiceType::from_bits_truncate(raw.dwServiceType),
             start_type: ServiceStartType::from_raw(raw.dwStartType)
                 .map_err(|e| Error::ParseValue("service start type", e))?,
@@ -573,21 +571,15 @@ pub enum HardwareProfileChangeParam {
 }
 
 impl HardwareProfileChangeParam {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 
-    pub fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == HardwareProfileChangeParam::ConfigChanged.to_raw() => {
-                Ok(HardwareProfileChangeParam::ConfigChanged)
-            }
-            x if x == HardwareProfileChangeParam::QueryChangeConfig.to_raw() => {
-                Ok(HardwareProfileChangeParam::QueryChangeConfig)
-            }
-            x if x == HardwareProfileChangeParam::ConfigChangeCanceled.to_raw() => {
-                Ok(HardwareProfileChangeParam::ConfigChangeCanceled)
-            }
+            x if x == Self::ConfigChanged.to_raw() => Ok(Self::ConfigChanged),
+            x if x == Self::QueryChangeConfig.to_raw() => Ok(Self::QueryChangeConfig),
+            x if x == Self::ConfigChangeCanceled.to_raw() => Ok(Self::ConfigChangeCanceled),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
@@ -604,15 +596,15 @@ pub enum PowerSource {
 }
 
 impl PowerSource {
-    pub fn to_raw(&self) -> i32 {
+    pub const fn to_raw(&self) -> i32 {
         *self as i32
     }
 
-    pub fn from_raw(raw: i32) -> Result<PowerSource, ParseRawError> {
+    pub const fn from_raw(raw: i32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == PowerSource::Ac.to_raw() => Ok(PowerSource::Ac),
-            x if x == PowerSource::Dc.to_raw() => Ok(PowerSource::Dc),
-            x if x == PowerSource::Hot.to_raw() => Ok(PowerSource::Hot),
+            x if x == Self::Ac.to_raw() => Ok(Self::Ac),
+            x if x == Self::Dc.to_raw() => Ok(Self::Dc),
+            x if x == Self::Hot.to_raw() => Ok(Self::Hot),
             _ => Err(ParseRawError::InvalidIntegerSigned(raw)),
         }
     }
@@ -629,15 +621,15 @@ pub enum DisplayState {
 }
 
 impl DisplayState {
-    pub fn to_raw(&self) -> i32 {
+    pub const fn to_raw(&self) -> i32 {
         *self as i32
     }
 
-    pub fn from_raw(raw: i32) -> Result<DisplayState, ParseRawError> {
+    pub const fn from_raw(raw: i32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == DisplayState::Off.to_raw() => Ok(DisplayState::Off),
-            x if x == DisplayState::On.to_raw() => Ok(DisplayState::On),
-            x if x == DisplayState::Dimmed.to_raw() => Ok(DisplayState::Dimmed),
+            x if x == Self::Off.to_raw() => Ok(Self::Off),
+            x if x == Self::On.to_raw() => Ok(Self::On),
+            x if x == Self::Dimmed.to_raw() => Ok(Self::Dimmed),
             _ => Err(ParseRawError::InvalidIntegerSigned(raw)),
         }
     }
@@ -654,14 +646,14 @@ pub enum UserStatus {
 }
 
 impl UserStatus {
-    pub fn to_raw(&self) -> i32 {
+    pub const fn to_raw(&self) -> i32 {
         *self as i32
     }
 
-    pub fn from_raw(raw: i32) -> Result<UserStatus, ParseRawError> {
+    pub const fn from_raw(raw: i32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == UserStatus::Present.to_raw() => Ok(UserStatus::Present),
-            x if x == UserStatus::Inactive.to_raw() => Ok(UserStatus::Inactive),
+            x if x == Self::Present.to_raw() => Ok(Self::Present),
+            x if x == Self::Inactive.to_raw() => Ok(Self::Inactive),
             _ => Err(ParseRawError::InvalidIntegerSigned(raw)),
         }
     }
@@ -677,14 +669,14 @@ pub enum MonitorState {
 }
 
 impl MonitorState {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 
-    pub fn from_raw(raw: u32) -> Result<MonitorState, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == MonitorState::Off.to_raw() => Ok(MonitorState::Off),
-            x if x == MonitorState::On.to_raw() => Ok(MonitorState::On),
+            x if x == Self::Off.to_raw() => Ok(Self::Off),
+            x if x == Self::On.to_raw() => Ok(Self::On),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
@@ -700,14 +692,14 @@ pub enum BatterySaverState {
 }
 
 impl BatterySaverState {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 
-    pub fn from_raw(raw: u32) -> Result<BatterySaverState, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == BatterySaverState::Off.to_raw() => Ok(BatterySaverState::Off),
-            x if x == BatterySaverState::On.to_raw() => Ok(BatterySaverState::On),
+            x if x == Self::Off.to_raw() => Ok(Self::Off),
+            x if x == Self::On.to_raw() => Ok(Self::On),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
@@ -728,16 +720,14 @@ pub enum PowerSchemePersonality {
 }
 
 impl PowerSchemePersonality {
-    pub fn from_guid(guid: &GUID) -> Result<PowerSchemePersonality, ParseRawError> {
+    pub fn from_guid(guid: &GUID) -> Result<Self, ParseRawError> {
         match guid {
             x if is_equal_guid(x, &SystemServices::GUID_MIN_POWER_SAVINGS) => {
-                Ok(PowerSchemePersonality::HighPerformance)
+                Ok(Self::HighPerformance)
             }
-            x if is_equal_guid(x, &SystemServices::GUID_MAX_POWER_SAVINGS) => {
-                Ok(PowerSchemePersonality::PowerSaver)
-            }
+            x if is_equal_guid(x, &SystemServices::GUID_MAX_POWER_SAVINGS) => Ok(Self::PowerSaver),
             x if is_equal_guid(x, &SystemServices::GUID_TYPICAL_POWER_SAVINGS) => {
-                Ok(PowerSchemePersonality::Automatic)
+                Ok(Self::Automatic)
             }
             x => Err(ParseRawError::InvalidGuid(string_from_guid(x))),
         }
@@ -754,14 +744,14 @@ pub enum AwayModeState {
 }
 
 impl AwayModeState {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 
-    pub fn from_raw(raw: u32) -> Result<AwayModeState, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == AwayModeState::Exiting.to_raw() => Ok(AwayModeState::Exiting),
-            x if x == AwayModeState::Entering.to_raw() => Ok(AwayModeState::Entering),
+            x if x == Self::Exiting.to_raw() => Ok(Self::Exiting),
+            x if x == Self::Entering.to_raw() => Ok(Self::Entering),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
@@ -791,61 +781,53 @@ impl PowerBroadcastSetting {
     ///
     /// The `raw` must be a valid Power::POWERBROADCAST_SETTING pointer.
     /// Otherwise, it is undefined behavior.
-    pub unsafe fn from_raw(raw: *mut c_void) -> Result<PowerBroadcastSetting, ParseRawError> {
+    pub unsafe fn from_raw(raw: *mut c_void) -> Result<Self, ParseRawError> {
         let setting = &*(raw as *const Power::POWERBROADCAST_SETTING);
         let data = &setting.Data as *const u8;
 
         match &setting.PowerSetting {
             x if is_equal_guid(x, &SystemServices::GUID_ACDC_POWER_SOURCE) => {
                 let power_source = *(data as *const i32);
-                Ok(PowerBroadcastSetting::AcdcPowerSource(
-                    PowerSource::from_raw(power_source)?,
-                ))
+                Ok(Self::AcdcPowerSource(PowerSource::from_raw(power_source)?))
             }
             x if is_equal_guid(x, &SystemServices::GUID_BATTERY_PERCENTAGE_REMAINING) => {
                 let percentage = *(data as *const u32);
-                Ok(PowerBroadcastSetting::BatteryPercentageRemaining(
-                    percentage,
-                ))
+                Ok(Self::BatteryPercentageRemaining(percentage))
             }
             x if is_equal_guid(x, &SystemServices::GUID_CONSOLE_DISPLAY_STATE) => {
                 let display_state = *(data as *const i32);
-                Ok(PowerBroadcastSetting::ConsoleDisplayState(
-                    DisplayState::from_raw(display_state)?,
-                ))
+                Ok(Self::ConsoleDisplayState(DisplayState::from_raw(
+                    display_state,
+                )?))
             }
             x if is_equal_guid(x, &SystemServices::GUID_GLOBAL_USER_PRESENCE) => {
                 let user_status = *(data as *const i32);
-                Ok(PowerBroadcastSetting::GlobalUserPresence(
-                    UserStatus::from_raw(user_status)?,
-                ))
+                Ok(Self::GlobalUserPresence(UserStatus::from_raw(user_status)?))
             }
             x if is_equal_guid(x, &SystemServices::GUID_IDLE_BACKGROUND_TASK) => {
-                Ok(PowerBroadcastSetting::IdleBackgroundTask)
+                Ok(Self::IdleBackgroundTask)
             }
             x if is_equal_guid(x, &SystemServices::GUID_MONITOR_POWER_ON) => {
                 let monitor_state = *(data as *const u32);
-                Ok(PowerBroadcastSetting::MonitorPowerOn(
-                    MonitorState::from_raw(monitor_state)?,
-                ))
+                Ok(Self::MonitorPowerOn(MonitorState::from_raw(monitor_state)?))
             }
             x if is_equal_guid(x, &SystemServices::GUID_POWER_SAVING_STATUS) => {
                 let battery_saver_state = *(data as *const u32);
-                Ok(PowerBroadcastSetting::PowerSavingStatus(
-                    BatterySaverState::from_raw(battery_saver_state)?,
-                ))
+                Ok(Self::PowerSavingStatus(BatterySaverState::from_raw(
+                    battery_saver_state,
+                )?))
             }
             x if is_equal_guid(x, &SystemServices::GUID_POWERSCHEME_PERSONALITY) => {
                 let guid = *(data as *const GUID);
-                Ok(PowerBroadcastSetting::PowerSchemePersonality(
+                Ok(Self::PowerSchemePersonality(
                     PowerSchemePersonality::from_guid(&guid)?,
                 ))
             }
             x if is_equal_guid(x, &SystemServices::GUID_SYSTEM_AWAYMODE) => {
                 let away_mode_state = *(data as *const u32);
-                Ok(PowerBroadcastSetting::SystemAwayMode(
-                    AwayModeState::from_raw(away_mode_state)?,
-                ))
+                Ok(Self::SystemAwayMode(AwayModeState::from_raw(
+                    away_mode_state,
+                )?))
             }
             x => Err(ParseRawError::InvalidGuid(string_from_guid(x))),
         }
@@ -880,20 +862,18 @@ impl PowerEventParam {
         event_data: *mut c_void,
     ) -> Result<Self, ParseRawError> {
         match event_type {
-            WindowsAndMessaging::PBT_APMPOWERSTATUSCHANGE => Ok(PowerEventParam::PowerStatusChange),
-            WindowsAndMessaging::PBT_APMRESUMEAUTOMATIC => Ok(PowerEventParam::ResumeAutomatic),
-            WindowsAndMessaging::PBT_APMRESUMESUSPEND => Ok(PowerEventParam::ResumeSuspend),
-            WindowsAndMessaging::PBT_APMSUSPEND => Ok(PowerEventParam::Suspend),
-            WindowsAndMessaging::PBT_POWERSETTINGCHANGE => Ok(PowerEventParam::PowerSettingChange(
+            WindowsAndMessaging::PBT_APMPOWERSTATUSCHANGE => Ok(Self::PowerStatusChange),
+            WindowsAndMessaging::PBT_APMRESUMEAUTOMATIC => Ok(Self::ResumeAutomatic),
+            WindowsAndMessaging::PBT_APMRESUMESUSPEND => Ok(Self::ResumeSuspend),
+            WindowsAndMessaging::PBT_APMSUSPEND => Ok(Self::Suspend),
+            WindowsAndMessaging::PBT_POWERSETTINGCHANGE => Ok(Self::PowerSettingChange(
                 PowerBroadcastSetting::from_raw(event_data)?,
             )),
-            WindowsAndMessaging::PBT_APMBATTERYLOW => Ok(PowerEventParam::BatteryLow),
-            WindowsAndMessaging::PBT_APMOEMEVENT => Ok(PowerEventParam::OemEvent),
-            WindowsAndMessaging::PBT_APMQUERYSUSPEND => Ok(PowerEventParam::QuerySuspend),
-            WindowsAndMessaging::PBT_APMQUERYSUSPENDFAILED => {
-                Ok(PowerEventParam::QuerySuspendFailed)
-            }
-            WindowsAndMessaging::PBT_APMRESUMECRITICAL => Ok(PowerEventParam::ResumeCritical),
+            WindowsAndMessaging::PBT_APMBATTERYLOW => Ok(Self::BatteryLow),
+            WindowsAndMessaging::PBT_APMOEMEVENT => Ok(Self::OemEvent),
+            WindowsAndMessaging::PBT_APMQUERYSUSPEND => Ok(Self::QuerySuspend),
+            WindowsAndMessaging::PBT_APMQUERYSUSPENDFAILED => Ok(Self::QuerySuspendFailed),
+            WindowsAndMessaging::PBT_APMRESUMECRITICAL => Ok(Self::ResumeCritical),
             _ => Err(ParseRawError::InvalidInteger(event_type)),
         }
     }
@@ -917,46 +897,24 @@ pub enum SessionChangeReason {
 }
 
 impl SessionChangeReason {
-    pub fn from_raw(raw: u32) -> Result<SessionChangeReason, ParseRawError> {
+    pub const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == SessionChangeReason::ConsoleConnect.to_raw() => {
-                Ok(SessionChangeReason::ConsoleConnect)
-            }
-            x if x == SessionChangeReason::ConsoleDisconnect.to_raw() => {
-                Ok(SessionChangeReason::ConsoleDisconnect)
-            }
-            x if x == SessionChangeReason::RemoteConnect.to_raw() => {
-                Ok(SessionChangeReason::RemoteConnect)
-            }
-            x if x == SessionChangeReason::RemoteDisconnect.to_raw() => {
-                Ok(SessionChangeReason::RemoteDisconnect)
-            }
-            x if x == SessionChangeReason::SessionLogon.to_raw() => {
-                Ok(SessionChangeReason::SessionLogon)
-            }
-            x if x == SessionChangeReason::SessionLogoff.to_raw() => {
-                Ok(SessionChangeReason::SessionLogoff)
-            }
-            x if x == SessionChangeReason::SessionLock.to_raw() => {
-                Ok(SessionChangeReason::SessionLock)
-            }
-            x if x == SessionChangeReason::SessionUnlock.to_raw() => {
-                Ok(SessionChangeReason::SessionUnlock)
-            }
-            x if x == SessionChangeReason::SessionRemoteControl.to_raw() => {
-                Ok(SessionChangeReason::SessionRemoteControl)
-            }
-            x if x == SessionChangeReason::SessionCreate.to_raw() => {
-                Ok(SessionChangeReason::SessionCreate)
-            }
-            x if x == SessionChangeReason::SessionTerminate.to_raw() => {
-                Ok(SessionChangeReason::SessionTerminate)
-            }
+            x if x == Self::ConsoleConnect.to_raw() => Ok(Self::ConsoleConnect),
+            x if x == Self::ConsoleDisconnect.to_raw() => Ok(Self::ConsoleDisconnect),
+            x if x == Self::RemoteConnect.to_raw() => Ok(Self::RemoteConnect),
+            x if x == Self::RemoteDisconnect.to_raw() => Ok(Self::RemoteDisconnect),
+            x if x == Self::SessionLogon.to_raw() => Ok(Self::SessionLogon),
+            x if x == Self::SessionLogoff.to_raw() => Ok(Self::SessionLogoff),
+            x if x == Self::SessionLock.to_raw() => Ok(Self::SessionLock),
+            x if x == Self::SessionUnlock.to_raw() => Ok(Self::SessionUnlock),
+            x if x == Self::SessionRemoteControl.to_raw() => Ok(Self::SessionRemoteControl),
+            x if x == Self::SessionCreate.to_raw() => Ok(Self::SessionCreate),
+            x if x == Self::SessionTerminate.to_raw() => Ok(Self::SessionTerminate),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
 
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         *self as u32
     }
 }
@@ -969,8 +927,8 @@ pub struct SessionNotification {
 }
 
 impl SessionNotification {
-    pub fn from_raw(raw: RemoteDesktop::WTSSESSION_NOTIFICATION) -> Self {
-        SessionNotification {
+    pub const fn from_raw(raw: RemoteDesktop::WTSSESSION_NOTIFICATION) -> Self {
+        Self {
             size: raw.cbSize,
             session_id: raw.dwSessionId,
         }
@@ -997,7 +955,7 @@ impl SessionChangeParam {
     ) -> Result<Self, ParseRawError> {
         let notification = *(event_data as *const RemoteDesktop::WTSSESSION_NOTIFICATION);
 
-        Ok(SessionChangeParam {
+        Ok(Self {
             reason: SessionChangeReason::from_raw(event_type)?,
             notification: SessionNotification::from_raw(notification),
         })
@@ -1039,17 +997,17 @@ impl ServiceControl {
         event_data: *mut c_void,
     ) -> Result<Self, ParseRawError> {
         match raw {
-            Services::SERVICE_CONTROL_CONTINUE => Ok(ServiceControl::Continue),
-            Services::SERVICE_CONTROL_INTERROGATE => Ok(ServiceControl::Interrogate),
-            Services::SERVICE_CONTROL_NETBINDADD => Ok(ServiceControl::NetBindAdd),
-            Services::SERVICE_CONTROL_NETBINDDISABLE => Ok(ServiceControl::NetBindDisable),
-            Services::SERVICE_CONTROL_NETBINDENABLE => Ok(ServiceControl::NetBindEnable),
-            Services::SERVICE_CONTROL_NETBINDREMOVE => Ok(ServiceControl::NetBindRemove),
-            Services::SERVICE_CONTROL_PARAMCHANGE => Ok(ServiceControl::ParamChange),
-            Services::SERVICE_CONTROL_PAUSE => Ok(ServiceControl::Pause),
-            Services::SERVICE_CONTROL_PRESHUTDOWN => Ok(ServiceControl::Preshutdown),
-            Services::SERVICE_CONTROL_SHUTDOWN => Ok(ServiceControl::Shutdown),
-            Services::SERVICE_CONTROL_STOP => Ok(ServiceControl::Stop),
+            Services::SERVICE_CONTROL_CONTINUE => Ok(Self::Continue),
+            Services::SERVICE_CONTROL_INTERROGATE => Ok(Self::Interrogate),
+            Services::SERVICE_CONTROL_NETBINDADD => Ok(Self::NetBindAdd),
+            Services::SERVICE_CONTROL_NETBINDDISABLE => Ok(Self::NetBindDisable),
+            Services::SERVICE_CONTROL_NETBINDENABLE => Ok(Self::NetBindEnable),
+            Services::SERVICE_CONTROL_NETBINDREMOVE => Ok(Self::NetBindRemove),
+            Services::SERVICE_CONTROL_PARAMCHANGE => Ok(Self::ParamChange),
+            Services::SERVICE_CONTROL_PAUSE => Ok(Self::Pause),
+            Services::SERVICE_CONTROL_PRESHUTDOWN => Ok(Self::Preshutdown),
+            Services::SERVICE_CONTROL_SHUTDOWN => Ok(Self::Shutdown),
+            Services::SERVICE_CONTROL_STOP => Ok(Self::Stop),
             Services::SERVICE_CONTROL_HARDWAREPROFILECHANGE => {
                 HardwareProfileChangeParam::from_raw(event_type)
                     .map(ServiceControl::HardwareProfileChange)
@@ -1061,32 +1019,30 @@ impl ServiceControl {
                 SessionChangeParam::from_event(event_type, event_data)
                     .map(ServiceControl::SessionChange)
             }
-            Services::SERVICE_CONTROL_TIMECHANGE => Ok(ServiceControl::TimeChange),
-            Services::SERVICE_CONTROL_TRIGGEREVENT => Ok(ServiceControl::TriggerEvent),
+            Services::SERVICE_CONTROL_TIMECHANGE => Ok(Self::TimeChange),
+            Services::SERVICE_CONTROL_TRIGGEREVENT => Ok(Self::TriggerEvent),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
 
-    pub fn raw_service_control_type(&self) -> u32 {
+    pub const fn raw_service_control_type(&self) -> u32 {
         match self {
-            ServiceControl::Continue => Services::SERVICE_CONTROL_CONTINUE,
-            ServiceControl::Interrogate => Services::SERVICE_CONTROL_INTERROGATE,
-            ServiceControl::NetBindAdd => Services::SERVICE_CONTROL_NETBINDADD,
-            ServiceControl::NetBindDisable => Services::SERVICE_CONTROL_NETBINDDISABLE,
-            ServiceControl::NetBindEnable => Services::SERVICE_CONTROL_NETBINDENABLE,
-            ServiceControl::NetBindRemove => Services::SERVICE_CONTROL_NETBINDREMOVE,
-            ServiceControl::ParamChange => Services::SERVICE_CONTROL_PARAMCHANGE,
-            ServiceControl::Pause => Services::SERVICE_CONTROL_PAUSE,
-            ServiceControl::Preshutdown => Services::SERVICE_CONTROL_PRESHUTDOWN,
-            ServiceControl::Shutdown => Services::SERVICE_CONTROL_SHUTDOWN,
-            ServiceControl::Stop => Services::SERVICE_CONTROL_STOP,
-            ServiceControl::HardwareProfileChange(_) => {
-                Services::SERVICE_CONTROL_HARDWAREPROFILECHANGE
-            }
-            ServiceControl::PowerEvent(_) => Services::SERVICE_CONTROL_POWEREVENT,
-            ServiceControl::SessionChange(_) => Services::SERVICE_CONTROL_SESSIONCHANGE,
-            ServiceControl::TimeChange => Services::SERVICE_CONTROL_TIMECHANGE,
-            ServiceControl::TriggerEvent => Services::SERVICE_CONTROL_TRIGGEREVENT,
+            Self::Continue => Services::SERVICE_CONTROL_CONTINUE,
+            Self::Interrogate => Services::SERVICE_CONTROL_INTERROGATE,
+            Self::NetBindAdd => Services::SERVICE_CONTROL_NETBINDADD,
+            Self::NetBindDisable => Services::SERVICE_CONTROL_NETBINDDISABLE,
+            Self::NetBindEnable => Services::SERVICE_CONTROL_NETBINDENABLE,
+            Self::NetBindRemove => Services::SERVICE_CONTROL_NETBINDREMOVE,
+            Self::ParamChange => Services::SERVICE_CONTROL_PARAMCHANGE,
+            Self::Pause => Services::SERVICE_CONTROL_PAUSE,
+            Self::Preshutdown => Services::SERVICE_CONTROL_PRESHUTDOWN,
+            Self::Shutdown => Services::SERVICE_CONTROL_SHUTDOWN,
+            Self::Stop => Services::SERVICE_CONTROL_STOP,
+            Self::HardwareProfileChange(_) => Services::SERVICE_CONTROL_HARDWAREPROFILECHANGE,
+            Self::PowerEvent(_) => Services::SERVICE_CONTROL_POWEREVENT,
+            Self::SessionChange(_) => Services::SERVICE_CONTROL_SESSIONCHANGE,
+            Self::TimeChange => Services::SERVICE_CONTROL_TIMECHANGE,
+            Self::TriggerEvent => Services::SERVICE_CONTROL_TRIGGEREVENT,
         }
     }
 }
@@ -1105,20 +1061,20 @@ pub enum ServiceState {
 }
 
 impl ServiceState {
-    fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
+    const fn from_raw(raw: u32) -> Result<Self, ParseRawError> {
         match raw {
-            x if x == ServiceState::Stopped.to_raw() => Ok(ServiceState::Stopped),
-            x if x == ServiceState::StartPending.to_raw() => Ok(ServiceState::StartPending),
-            x if x == ServiceState::StopPending.to_raw() => Ok(ServiceState::StopPending),
-            x if x == ServiceState::Running.to_raw() => Ok(ServiceState::Running),
-            x if x == ServiceState::ContinuePending.to_raw() => Ok(ServiceState::ContinuePending),
-            x if x == ServiceState::PausePending.to_raw() => Ok(ServiceState::PausePending),
-            x if x == ServiceState::Paused.to_raw() => Ok(ServiceState::Paused),
+            x if x == Self::Stopped.to_raw() => Ok(Self::Stopped),
+            x if x == Self::StartPending.to_raw() => Ok(Self::StartPending),
+            x if x == Self::StopPending.to_raw() => Ok(Self::StopPending),
+            x if x == Self::Running.to_raw() => Ok(Self::Running),
+            x if x == Self::ContinuePending.to_raw() => Ok(Self::ContinuePending),
+            x if x == Self::PausePending.to_raw() => Ok(Self::PausePending),
+            x if x == Self::Paused.to_raw() => Ok(Self::Paused),
             _ => Err(ParseRawError::InvalidInteger(raw)),
         }
     }
 
-    fn to_raw(self) -> u32 {
+    const fn to_raw(self) -> u32 {
         self as u32
     }
 }
@@ -1145,15 +1101,15 @@ pub enum ServiceExitCode {
 
 impl ServiceExitCode {
     /// A `ServiceExitCode` indicating success, no errors.
-    pub const NO_ERROR: Self = ServiceExitCode::Win32(NO_ERROR);
+    pub const NO_ERROR: Self = Self::Win32(NO_ERROR);
 
     fn copy_to(&self, raw_service_status: &mut Services::SERVICE_STATUS) {
         match *self {
-            ServiceExitCode::Win32(win32_error_code) => {
+            Self::Win32(win32_error_code) => {
                 raw_service_status.dwWin32ExitCode = win32_error_code;
                 raw_service_status.dwServiceSpecificExitCode = 0;
             }
-            ServiceExitCode::ServiceSpecific(service_error_code) => {
+            Self::ServiceSpecific(service_error_code) => {
                 raw_service_status.dwWin32ExitCode = ERROR_SERVICE_SPECIFIC_ERROR;
                 raw_service_status.dwServiceSpecificExitCode = service_error_code;
             }
@@ -1170,9 +1126,9 @@ impl Default for ServiceExitCode {
 impl<'a> From<&'a Services::SERVICE_STATUS> for ServiceExitCode {
     fn from(service_status: &'a Services::SERVICE_STATUS) -> Self {
         if service_status.dwWin32ExitCode == ERROR_SERVICE_SPECIFIC_ERROR {
-            ServiceExitCode::ServiceSpecific(service_status.dwServiceSpecificExitCode)
+            Self::ServiceSpecific(service_status.dwServiceSpecificExitCode)
         } else {
-            ServiceExitCode::Win32(service_status.dwWin32ExitCode)
+            Self::Win32(service_status.dwWin32ExitCode)
         }
     }
 }
@@ -1180,9 +1136,9 @@ impl<'a> From<&'a Services::SERVICE_STATUS> for ServiceExitCode {
 impl<'a> From<&'a Services::SERVICE_STATUS_PROCESS> for ServiceExitCode {
     fn from(service_status: &'a Services::SERVICE_STATUS_PROCESS) -> Self {
         if service_status.dwWin32ExitCode == ERROR_SERVICE_SPECIFIC_ERROR {
-            ServiceExitCode::ServiceSpecific(service_status.dwServiceSpecificExitCode)
+            Self::ServiceSpecific(service_status.dwServiceSpecificExitCode)
         } else {
-            ServiceExitCode::Win32(service_status.dwWin32ExitCode)
+            Self::Win32(service_status.dwWin32ExitCode)
         }
     }
 }
@@ -1306,7 +1262,7 @@ impl ServiceStatus {
     ///
     /// Returns an error if the `dwCurrentState` field does not represent a valid [`ServiceState`].
     fn from_raw(raw: Services::SERVICE_STATUS) -> Result<Self, ParseRawError> {
-        Ok(ServiceStatus {
+        Ok(Self {
             service_type: ServiceType::from_bits_truncate(raw.dwServiceType),
             current_state: ServiceState::from_raw(raw.dwCurrentState)?,
             controls_accepted: ServiceControlAccept::from_bits_truncate(raw.dwControlsAccepted),
@@ -1328,7 +1284,7 @@ impl ServiceStatus {
             ServiceState::Running => Some(raw.dwProcessId),
             _ => None,
         };
-        Ok(ServiceStatus {
+        Ok(Self {
             service_type: ServiceType::from_bits_truncate(raw.dwServiceType),
             current_state,
             controls_accepted: ServiceControlAccept::from_bits_truncate(raw.dwControlsAccepted),
@@ -1361,7 +1317,7 @@ pub struct Service {
 
 impl Service {
     pub(crate) fn new(service_handle: ScHandle) -> Self {
-        Service { service_handle }
+        Self { service_handle }
     }
 
     /// Start the service.
@@ -1688,10 +1644,10 @@ impl Service {
     ///
     /// Required permission: [`ServiceAccess::CHANGE_CONFIG`].
     pub fn set_description(&self, description: impl AsRef<OsStr>) -> crate::Result<()> {
-        let wide_str = WideCString::from_os_str(description)
+        let mut wide_str = WideCString::from_os_str(description)
             .map_err(|_| Error::ArgumentHasNulByte("service description"))?;
         let mut service_description = Services::SERVICE_DESCRIPTIONW {
-            lpDescription: wide_str.as_ptr() as *mut _,
+            lpDescription: wide_str.as_mut_ptr(),
         };
 
         unsafe {

@@ -16,8 +16,8 @@ use crate::{Error, Result};
 pub struct ServiceStatusHandle(Services::SERVICE_STATUS_HANDLE);
 
 impl ServiceStatusHandle {
-    fn from_handle(handle: Services::SERVICE_STATUS_HANDLE) -> Self {
-        ServiceStatusHandle(handle)
+    const fn from_handle(handle: Services::SERVICE_STATUS_HANDLE) -> Self {
+        Self(handle)
     }
 
     /// Report the new service status to the system.
@@ -63,11 +63,11 @@ pub enum ServiceControlHandlerResult {
 }
 
 impl ServiceControlHandlerResult {
-    pub fn to_raw(&self) -> u32 {
+    pub const fn to_raw(&self) -> u32 {
         match *self {
-            ServiceControlHandlerResult::NoError => NO_ERROR,
-            ServiceControlHandlerResult::NotImplemented => ERROR_CALL_NOT_IMPLEMENTED,
-            ServiceControlHandlerResult::Other(code) => code,
+            Self::NoError => NO_ERROR,
+            Self::NotImplemented => ERROR_CALL_NOT_IMPLEMENTED,
+            Self::Other(code) => code,
         }
     }
 }

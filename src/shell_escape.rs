@@ -36,7 +36,7 @@ pub fn escape(s: Cow<'_, OsStr>) -> Cow<'_, OsStr> {
     let mut chars = s.encode_wide().peekable();
     loop {
         let mut num_slashes = 0;
-        while let Some(&utf16::BACKSLASH) = chars.peek() {
+        while chars.peek() == Some(&utf16::BACKSLASH) {
             chars.next();
             num_slashes += 1;
         }
